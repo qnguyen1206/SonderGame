@@ -15,6 +15,7 @@ public class ParallaxLayer
 public class ParallaxManager : MonoBehaviour
 {
     [Header("Target Settings")]
+    [SerializeField] private bool followCamera = true;
     [SerializeField] private Transform player;
     [SerializeField] private bool autoFindPlayer = true;
 
@@ -25,7 +26,7 @@ public class ParallaxManager : MonoBehaviour
     [SerializeField] private Camera mainCamera;
     [SerializeField] private bool autoFindCamera = true;
 
-    private Vector3 previousPlayerPosition;
+    private Vector3 previousCameraPosition;
 
     void Start()
     {
@@ -50,11 +51,6 @@ public class ParallaxManager : MonoBehaviour
             }
         }
 
-        if (player != null)
-        {
-            previousPlayerPosition = player.position;
-        }
-
         // Store initial positions of all layers
         foreach (var layer in parallaxLayers)
         {
@@ -63,14 +59,38 @@ public class ParallaxManager : MonoBehaviour
                 layer.startPosition = layer.layerTransform.position;
             }
         }
+
+        // Initialize previous position based on follow mode
+        if (followCamera && mainCamera != null)
+        {
+            previousCameraPosition = mainCamera.transform.position;
+        }
+        else if (player != null)
+        {
+            previousCameraPosition = player.position;
+        }
     }
 
     void LateUpdate()
     {
-        if (player == null) return;
+        // Determine what to follow based on settings
+        Transform targetTransform = null;
+        if (followCamera && mainCamera != null)
+        {
+            targetTransform = mainCamera.transform;
+        }
+        else if (player != null)
+        {
+            targetTransform = player;
+        }
 
-        // Calculate how much the player has moved
-        Vector3 playerMovement = player.position - previousPlayerPosition;
+        if (targetTransform == null) return;
+
+        // Calculate how much the target has moved
+        Vector3 targetMovement = targetTransform.position - previousCameraPosition;
+
+        // Only use horizontal movement for parallax (ignore Y axis)
+        targetMovement.y = 0f;
 
         // Apply parallax effect to each layer
         foreach (var layer in parallaxLayers)
@@ -79,11 +99,11 @@ public class ParallaxManager : MonoBehaviour
             {
                 // Move the layer based on parallax strength
                 // Lower strength = further away = moves less
-                Vector3 parallaxOffset = playerMovement * layer.parallaxStrength;
-                
+                Vector3 parallaxOffset = targetMovement * layer.parallaxStrength;
+
                 // Add constant drift to the left
                 Vector3 driftOffset = Vector3.left * layer.driftSpeed * Time.deltaTime;
-                
+
                 layer.layerTransform.position += parallaxOffset + driftOffset;
 
                 // Handle wrapping
@@ -95,7 +115,7 @@ public class ParallaxManager : MonoBehaviour
         }
 
         // Update previous position for next frame
-        previousPlayerPosition = player.position;
+        previousCameraPosition = targetTransform.position;
     }
 
     private void WrapLayer(ParallaxLayer layer)
@@ -103,7 +123,7 @@ public class ParallaxManager : MonoBehaviour
         // Get the camera bounds
         float cameraHeight = mainCamera.orthographicSize * 2f;
         float cameraWidth = cameraHeight * mainCamera.aspect;
-        
+
         Vector3 cameraPosition = mainCamera.transform.position;
         float leftEdge = cameraPosition.x - (cameraWidth / 2f);
         float rightEdge = cameraPosition.x + (cameraWidth / 2f);
@@ -148,9 +168,14 @@ public class ParallaxManager : MonoBehaviour
             }
         }
 
-        if (player != null)
+        // Reinitialize previous position
+        if (followCamera && mainCamera != null)
         {
-            previousPlayerPosition = player.position;
+            previousCameraPosition = mainCamera.transform.position;
+        }
+        else if (player != null)
+        {
+            previousCameraPosition = player.position;
         }
     }
 }
